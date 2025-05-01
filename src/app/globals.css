@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -7,6 +10,15 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+  }
+}
+
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+  .print\:p-4 {
+    padding: 1rem !important;
   }
 }
 
