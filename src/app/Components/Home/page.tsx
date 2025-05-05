@@ -77,89 +77,184 @@ const calculateWorkedHours = (timeIn: string, timeOut: string) => {
   };
 
 export default function Home() {
-  const [names, setNames] = useState<string[]>([]);
-  const [selectedName, setSelectedName] = useState<string | null>(null);
- // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const [dtrData, setDtrData] = useState<Record<string, any>>({});
+  const [names, setNames] = useState<string[]>([])
+  const [selectedName, setSelectedName] = useState<string | null>(null)
+  const [dtrData, setDtrData] = useState<Record<string, any>>({})
+  const [searchQuery, setSearchQuery] = useState<string>("")
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const monthName = now.toLocaleDateString("en-US", { month: "long" })
+  const currentMonthPath = `${year}-${month.toString().padStart(2, "0")}`
+  const daysInMonth = getDaysInMonth(year, month)
 
-  const [searchQuery, setSearchQuery] = useState<string>("");
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const monthName = now.toLocaleDateString("en-US", { month: "long" });
-  const currentMonthPath = `${year}-${month.toString().padStart(2, "0")}`;
-  const daysInMonth = getDaysInMonth(year, month);
+  useEffect(() => {
+    const img = new window.Image() // Use the native Image constructor
+    img.src = "/assets/dtrsystemicon.png?v=1"
+    img.onload = () => setImageLoaded(true) // Set imageLoaded to true when the image is loaded
+  }, [])
 
   useEffect(() => {
     const fetchNames = async () => {
-      const snapshot = await get(ref(database, "embeddings"));
-      const fetchedNames = snapshot.exists() ? Object.keys(snapshot.val()) : [];
-      setNames(fetchedNames);
-    };
-    fetchNames();
-  }, []);
+      const snapshot = await get(ref(database, "embeddings"))
+      const fetchedNames = snapshot.exists() ? Object.keys(snapshot.val()) : []
+      setNames(fetchedNames)
+    }
+    fetchNames()
+  }, [])
 
   useEffect(() => {
     const fetchDTR = async () => {
-      if (!selectedName) return;
-      const path = `logs/${selectedName}/${currentMonthPath}`;
-      const snapshot = await get(ref(database, path));
-      setDtrData(snapshot.exists() ? snapshot.val() : {});
-    };
-    fetchDTR();
-  }, [selectedName, currentMonthPath]);
+      if (!selectedName) return
+      const path = `logs/${selectedName}/${currentMonthPath}`
+      const snapshot = await get(ref(database, path))
+      setDtrData(snapshot.exists() ? snapshot.val() : {})
+    }
+    fetchDTR()
+  }, [selectedName, currentMonthPath])
 
   const filteredNames = names.filter((name) =>
     name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  )
 
   const calculateTotalTime = () => {
-    let totalHours = 0;
-    let totalMinutes = 0;
-    
+    let totalHours = 0
+    let totalMinutes = 0
+
     daysInMonth.forEach((day) => {
-      const logs = dtrData[day] || {};
-      
-      // Calculate hours for AM and PM
-      const amWorked = calculateWorkedHours(logs.AM_IN, logs.AM_OUT);
-      const pmWorked = calculateWorkedHours(logs.PM_IN, logs.PM_OUT);
-      
-      totalHours += amWorked.hours + pmWorked.hours;
-      totalMinutes += amWorked.minutes + pmWorked.minutes;
-    });
-    
-    // Convert minutes to hours if necessary
-    totalHours += Math.floor(totalMinutes / 60);
-    totalMinutes = totalMinutes % 60; // Remaining minutes
+      const logs = dtrData[day] || {}
+      const amWorked = calculateWorkedHours(logs.AM_IN, logs.AM_OUT)
+      const pmWorked = calculateWorkedHours(logs.PM_IN, logs.PM_OUT)
 
-    return { totalHours, totalMinutes };
-  };
+      totalHours += amWorked.hours + pmWorked.hours
+      totalMinutes += amWorked.minutes + pmWorked.minutes
+    })
 
-  const { totalHours, totalMinutes } = calculateTotalTime();
+    totalHours += Math.floor(totalMinutes / 60)
+    totalMinutes = totalMinutes % 60
+
+    return { totalHours, totalMinutes }
+  }
+
+  const printContent = () => {
+    if (!imageLoaded) {
+      alert("Image is still loading. Please wait and try printing again.")
+      return
+    }
+
+    // Open a new print window
+    const printWindow = window.open("", "", "width=800,height=600")
+
+    if (!printWindow) {
+      alert("Failed to open print window.")
+      return
+    }
+
+    // Log the content to make sure it's there
+    const printAreaContent = document.getElementById("print-area")?.innerHTML
+    console.log(printAreaContent) // Check if this has the expected content
+
+    // Write content to the print window
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 2rem;
+              background: white;
+            }
+            table {
+              border-collapse: collapse;
+              width: 100%;
+            }
+            th, td {
+              border: 1px solid black;
+              padding: 0.25rem;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="print-area">
+            ${printAreaContent}
+          </div>
+        </body>
+      </html>
+    `)
+
+    printWindow.document.close()
+    printWindow.focus()
+
+    // Ensure the print dialog opens only after the content is ready
+    printWindow.onload = () => {
+      printWindow.print()
+      printWindow.close()
+    }
+  }
+
+  const { totalHours, totalMinutes } = calculateTotalTime()
 
   return (
-    <main className="flex min-h-screen bg-gray-100 py-8 print:bg-white print:block">
-      {/* Sidebar - Names (hidden when printing) */}
-      <div className="w-1/4 bg-white border-r border-gray-300 p-6 overflow-y-auto print:hidden">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Employee</h2>
-        <div className="mb-4 text-black ">
+    <main
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        backgroundColor: "#f3f4f6",
+        padding: "2rem",
+      }}
+    >
+      {/* Sidebar */}
+      <div
+        style={{
+          width: "250px",
+          backgroundColor: "#ffffff",
+          borderRight: "1px solid #d1d5db",
+          padding: "1.5rem",
+          overflowY: "auto",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "1.25rem",
+            fontWeight: "600",
+            marginBottom: "1rem",
+            color: "#374151",
+          }}
+        >
+          Employee
+        </h2>
+        <div style={{ marginBottom: "1rem", color: "black" }}>
           <input
             type="text"
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              border: "1px solid #d1d5db",
+              borderRadius: "0.375rem",
+            }}
           />
         </div>
-        <ul className="space-y-2">
+        <ul style={{ listStyleType: "none", padding: 0 }}>
           {filteredNames.map((name) => (
             <li
               key={name}
               onClick={() => setSelectedName(name)}
-              className={`cursor-pointer px-4 py-2 rounded-lg ${selectedName === name
-                ? "bg-blue-100 text-blue-700 font-medium"
-                : "bg-gray-100 text-gray-800"}`}
+              style={{
+                cursor: "pointer",
+                padding: "0.5rem 1rem",
+                borderRadius: "0.5rem",
+                backgroundColor: selectedName === name ? "#dbeafe" : "#f3f4f6",
+                color: selectedName === name ? "#1d4ed8" : "#1f2937",
+                fontWeight: selectedName === name ? "500" : "normal",
+                marginBottom: "0.5rem",
+              }}
             >
               {name}
             </li>
@@ -168,74 +263,264 @@ const [dtrData, setDtrData] = useState<Record<string, any>>({});
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 bg-white overflow-y-auto print:w-full print:px-4 print:py-6 relative">
-        {/* Print Button (hidden when printing) */}
+      <div
+        id="print-area"
+        style={{
+          flexGrow: 1,
+          backgroundColor: "#ffffff",
+          overflowY: "auto",
+          padding: "1.5rem",
+          position: "relative",
+        }}
+      >
         <button
-          onClick={() => window.print()}
-          className="absolute top-4 right-4 p-3 bg-red-600 text-white rounded print:hidden text-center"
+          onClick={printContent} // updated from window.print()
+          className="no-print"
+          style={{
+            position: "absolute",
+            top: "1rem",
+            right: "1rem",
+            padding: "0.75rem",
+            backgroundColor: "#e53e3e",
+            color: "white",
+            borderRadius: "0.375rem",
+          }}
         >
-          Print PDF
+          Print
         </button>
 
-        <div className="p-6 print:pt-10 print:pb-10 print:px-4 flex justify-center">
-          <div className="w-full max-w-3xl text-sm text-gray-800">
-            {/* Header */}
-            <div className="text-center mb-8 flex flex-col items-center">
-            <Image
-  src="/assets/dtrsystemicon.png"
-  alt="Logo"
-  width={80}
-  height={80}
-  className="object-contain mb-2"
-/>
+        <div
+          style={{
+            padding: "1.5rem",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "768px",
+              fontSize: "0.875rem",
+              color: "#4a4a4a",
+            }}
+          >
+            <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Image
+                  src="/assets/dtrsystemicon.png?v=1"
+                  alt="Logo"
+                  width={80}
+                  height={80}
+                  style={{ objectFit: "contain", marginBottom: "0.5rem" }}
+                  priority // Ensures the image is loaded sooner
+                />
+              </div>
 
-              <h1 className="text-base font-bold tracking-wide">DAILY TIME RECORD (DTR)</h1>
-              <p className="text-xs font-bold">SSFO DUMALINAO SUB-OFFICE</p>
-              <p className="text-xs mb-2 font-bold">{monthName} {year}</p>
+              <h1
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: "700",
+                  letterSpacing: "0.05rem",
+                }}
+              >
+                DAILY TIME RECORD (DTR)
+              </h1>
+              <p style={{ fontSize: "0.75rem", fontWeight: "700" }}>
+                SSFO DUMALINAO SUB-OFFICE
+              </p>
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  marginBottom: "0.5rem",
+                  fontWeight: "700",
+                }}
+              >
+                {monthName} {year}
+              </p>
             </div>
 
             {/* Name field */}
-            <div className="mb-6">
-              <p className="text-sm">
-                <span className="font-semibold">Name:</span>{" "}
-                <span className="border-b border-black inline-block w-64 ml-2 align-bottom">
+            <div style={{ marginBottom: "1.5rem" }}>
+              <p style={{ fontSize: "0.875rem" }}>
+                <span style={{ fontWeight: "700" }}>Name:</span>{" "}
+                <span
+                  style={{
+                    borderBottom: "1px solid black",
+                    display: "inline-block",
+                    width: "16rem",
+                    marginLeft: "0.5rem",
+                  }}
+                >
                   {selectedName}
                 </span>
               </p>
             </div>
 
             {/* Table Section */}
-            <div className="mb-12">
-              <div className="flex justify-center text-center">
-                <table className="border border-black border-collapse text-xs w-auto">
+            <div style={{ marginBottom: "3rem", overflowX: "auto" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  textAlign: "center",
+                }}
+              >
+                <table
+                  style={{
+                    border: "1px solid black",
+                    borderCollapse: "collapse",
+                    fontSize: "0.75rem",
+                    width: "100%",
+                  }}
+                >
                   <thead>
                     <tr>
-                      <th className="border border-black px-1 py-1 w-16">Date</th>
-                      <th className="border border-black px-1 py-1 w-16">A.M.</th>
-                      <th className="border border-black px-1 py-1 w-16">Time-in</th>
-                      <th className="border border-black px-1 py-1 w-16">Time-out</th>
-                      <th className="border border-black px-1 py-1 w-16">P.M.</th>
-                      <th className="border border-black px-1 py-1 w-16">Time-in</th>
-                      <th className="border border-black px-1 py-1 w-16">Time-out</th>
-                      <th className="border border-black px-1 py-1 w-20">Signature</th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "4rem",
+                        }}
+                      >
+                        Date
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "4rem",
+                        }}
+                      >
+                        A.M.
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "4rem",
+                        }}
+                      >
+                        Time-in
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "4rem",
+                        }}
+                      >
+                        Time-out
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "4rem",
+                        }}
+                      >
+                        P.M.
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "4rem",
+                        }}
+                      >
+                        Time-in
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "4rem",
+                        }}
+                      >
+                        Time-out
+                      </th>
+                      <th
+                        style={{
+                          border: "1px solid black",
+                          padding: "0.25rem",
+                          width: "5rem",
+                        }}
+                      >
+                        Signature
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {daysInMonth.map((day) => {
-                      const logs = dtrData[day] || {};
-                      const formatted = formatShortDate(year, month, day);
+                      const logs = dtrData[day] || {}
+                      const formatted = formatShortDate(year, month, day)
                       return (
                         <tr key={day}>
-                          <td className="border border-black px-1 py-1">{formatted}</td>
-                          <td className="border border-black px-1 py-1"></td>
-                          <td className="border border-black px-1 py-1">{logs.AM_IN || ""}</td>
-                          <td className="border border-black px-1 py-1">{logs.AM_OUT || ""}</td>
-                          <td className="border border-black px-1 py-1"></td>
-                          <td className="border border-black px-1 py-1">{logs.PM_IN || ""}</td>
-                          <td className="border border-black px-1 py-1">{logs.PM_OUT || ""}</td>
-                          <td className="border border-black px-1 py-1"></td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          >
+                            {formatted}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          ></td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          >
+                            {logs.AM_IN || ""}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          >
+                            {logs.AM_OUT || ""}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          ></td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          >
+                            {logs.PM_IN || ""}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          >
+                            {logs.PM_OUT || ""}
+                          </td>
+                          <td
+                            style={{
+                              border: "1px solid black",
+                              padding: "0.25rem",
+                            }}
+                          ></td>
                         </tr>
-                      );
+                      )
                     })}
                   </tbody>
                 </table>
@@ -243,32 +528,141 @@ const [dtrData, setDtrData] = useState<Record<string, any>>({});
             </div>
 
             {/* Footer Section */}
-            <div className="space-y-8 mt-10">
-              <div className="text-sm">
-                <span className="font-semibold">TOTAL: </span>
-                <span className="border-b border-black inline-block w-64 align-bottom">
+            <div
+              style={{
+                marginTop: "3rem",
+                fontSize: "0.875rem",
+                lineHeight: "1.5",
+              }}
+            >
+              <div style={{ marginBottom: "1.5rem" }}>
+                <span style={{ fontWeight: "700" }}>TOTAL: </span>
+                <span
+                  style={{
+                    borderBottom: "1px solid black",
+                    display: "inline-block",
+                    width: "16rem",
+                    verticalAlign: "bottom",
+                  }}
+                >
                   {totalHours} hours {totalMinutes} minutes
                 </span>
               </div>
 
-              <div className="mt-6">
-                <p className="text-xs italic leading-snug text-center">
-                  *I CERTIFY on my honor that the above is a true and correct report of the work performed,
-                  record of which was made daily at the time of arrival at and departure from office.*
+              <div style={{ marginTop: "1.5rem" }}>
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    fontStyle: "italic",
+                    textAlign: "center",
+                  }}
+                >
+                  *I CERTIFY on my honor that the above is a true and correct
+                  report of the work performed, record of which was made daily
+                  at the time of arrival at and departure from office.*
                 </p>
               </div>
 
-              <div className="flex justify-start mt-10">
-                <div className="text-center text-sm">
-                  <p className="font-semibold border-t border-black pt-1">MRS. ARLYN BOJOS</p>
-                  <p>Municipal Facilitator</p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-start",
+                  marginTop: "2.5rem",
+                }}
+              >
+                <div
+                  style={{
+                    textAlign: "center",
+                    fontSize: "0.875rem",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontWeight: "700",
+                      borderTop: "1px solid black",
+                      paddingTop: "0.25rem",
+                    }}
+                  >
+                    MARIFIE T. ASUBAR
+                  </p>
+                  <p>OIC - SSFO</p>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>
+      <style jsx global>{`
+        @media print {
+          body,
+          html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+          }
+          body * {
+            visibility: hidden;
+          }
+          #print-area,
+          #print-area * {
+            visibility: visible;
+          }
+          #print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+            background: white;
+            transform: scale(0.75); /* Adjusted for manual fit */
+            transform-origin: top left;
+          }
+          .no-print {
+            display: none !important;
+          }
+
+          /* Set page size and margins */
+          @page {
+            size: A4;
+            margin: 5mm; /* Smaller margins to fit content */
+          }
+
+          /* Reduce font size for better fitting */
+          #print-area {
+            font-size: 0.7rem; /* Further reduced font size */
+          }
+
+          /* Table adjustments */
+          table {
+            width: 100%;
+            font-size: 0.7rem; /* Reduced font size in table */
+          }
+          th,
+          td {
+            padding: 0.2rem; /* Reduced padding for smaller content */
+          }
+
+          /* Footer adjustments */
+          .footer-section {
+            margin-top: 2.5rem; /* Adjusted margin for footer */
+            font-size: 0.7rem; /* Reduced footer font size */
+            line-height: 1.4; /* Reduced line height to save space */
+          }
+
+          /* Footer content spacing */
+          .footer-section div {
+            margin-top: 0.5rem; /* Reduced space between footer content */
+          }
+          .footer-section p {
+            margin: 0;
+          }
+        }
+      `}</style>
     </main>
-  );
+  )
 }
