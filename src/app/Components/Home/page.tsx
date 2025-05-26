@@ -19,7 +19,6 @@ function getDaysInMonth(year: number, month: number) {
   return days;
 }
 
-// Format like "01-Feb"
 function formatShortDate(year: number, month: number, day: string) {
   const date = new Date(year, month - 1, parseInt(day));
   return date.toLocaleDateString("en-US", {
@@ -71,7 +70,7 @@ const calculateWorkedHours = (timeIn: string, timeOut: string) => {
     if (diff < 0) diff += 24 * 60 * 60 * 1000;
   
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); // Use 'const' instead of 'let'
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
   
     return { hours, minutes };
   };
@@ -90,9 +89,9 @@ export default function Home() {
   const daysInMonth = getDaysInMonth(year, month)
 
   useEffect(() => {
-    const img = new window.Image() // Use the native Image constructor
+    const img = new window.Image()
     img.src = "/assets/dtrsystemicon.png?v=1"
-    img.onload = () => setImageLoaded(true) // Set imageLoaded to true when the image is loaded
+    img.onload = () => setImageLoaded(true) 
   }, [])
 
   useEffect(() => {
@@ -143,7 +142,6 @@ export default function Home() {
       return
     }
 
-    // Open a new print window
     const printWindow = window.open("", "", "width=800,height=600")
 
     if (!printWindow) {
@@ -151,11 +149,8 @@ export default function Home() {
       return
     }
 
-    // Log the content to make sure it's there
     const printAreaContent = document.getElementById("print-area")?.innerHTML
-    console.log(printAreaContent) // Check if this has the expected content
 
-    // Write content to the print window
     printWindow.document.write(`
       <html>
         <head>
@@ -189,7 +184,6 @@ export default function Home() {
     printWindow.document.close()
     printWindow.focus()
 
-    // Ensure the print dialog opens only after the content is ready
     printWindow.onload = () => {
       printWindow.print()
       printWindow.close()
@@ -274,7 +268,7 @@ export default function Home() {
         }}
       >
         <button
-          onClick={printContent} // updated from window.print()
+          onClick={printContent} 
           className="no-print"
           style={{
             position: "absolute",
@@ -318,7 +312,7 @@ export default function Home() {
                   width={80}
                   height={80}
                   style={{ objectFit: "contain", marginBottom: "0.5rem" }}
-                  priority // Ensures the image is loaded sooner
+                  priority 
                 />
               </div>
 
@@ -619,7 +613,7 @@ export default function Home() {
             margin: 0 !important;
             max-width: none !important;
             background: white;
-            transform: scale(0.75); /* Adjusted for manual fit */
+            transform: scale(0.75); 
             transform-origin: top left;
           }
           .no-print {
@@ -629,34 +623,34 @@ export default function Home() {
           /* Set page size and margins */
           @page {
             size: A4;
-            margin: 5mm; /* Smaller margins to fit content */
+            margin: 5mm; 
           }
 
           /* Reduce font size for better fitting */
           #print-area {
-            font-size: 0.7rem; /* Further reduced font size */
+            font-size: 0.7rem; 
           }
 
           /* Table adjustments */
           table {
             width: 100%;
-            font-size: 0.7rem; /* Reduced font size in table */
+            font-size: 0.7rem; 
           }
           th,
           td {
-            padding: 0.2rem; /* Reduced padding for smaller content */
+            padding: 0.2rem; 
           }
 
           /* Footer adjustments */
           .footer-section {
-            margin-top: 2.5rem; /* Adjusted margin for footer */
-            font-size: 0.7rem; /* Reduced footer font size */
-            line-height: 1.4; /* Reduced line height to save space */
+            margin-top: 2.5rem; 
+            font-size: 0.7rem; 
+            line-height: 1.4; 
           }
 
           /* Footer content spacing */
           .footer-section div {
-            margin-top: 0.5rem; /* Reduced space between footer content */
+            margin-top: 0.5rem; 
           }
           .footer-section p {
             margin: 0;
